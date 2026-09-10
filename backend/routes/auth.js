@@ -66,5 +66,40 @@ router.post('/login', (req, res) => {
     res.json({ message: 'Login successful', token, user: { id: user.id, name: user.name, email: user.email } });
   });
 });
+// DOCTOR LOGIN
+router.post('/doctor-login', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  db.query('SELECT * FROM doctors WHERE email = ?', [email], async (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (results.length === 0) {
+      return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    const doctor = results[0];
+
+    if (!doctor.password) {
+      return res.status(400).json({ error: 'This doctor account has no login set up' });
+    }
+
+    const isMatch = await bcrypt.compare(password, doctor.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign({ id: doctor.id, role: 'doctor' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({
+      message: 'Doctor login successful',
+      token,
+      doctor: { id: doctor.id, name: doctor.name, email: doctor.email, speciality: doctor.speciality }
+    });
+  });
+});
 
 module.exports = router;
